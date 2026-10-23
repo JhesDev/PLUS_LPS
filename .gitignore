@@ -1,0 +1,37 @@
+# Entornos y secretos locales
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python / uv
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+**/*.egg-info/
+.pytest_cache/
+**/.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+coverage/
+.vite/
+
+# Supabase local state
+database/supabase/.temp/
+database/supabase/.branches/
+
+# Sistema operativo e IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

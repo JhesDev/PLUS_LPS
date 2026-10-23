@@ -1,0 +1,29 @@
+# PLUS_LPS frontend · variables públicas del navegador
+#
+# Solo se permiten valores PUBLICABLES. Nunca agregar aquí:
+#   - service_role / secret keys
+#   - contraseñas, DSN de PostgreSQL o credenciales de SAP
+#
+# La autenticación real (Supabase Auth) y el acceso a datos siguen pendientes
+# de integración; el boceto funciona con un repositorio demo en memoria.
+
+# URL del backend FastAPI (p. ej. http://127.0.0.1:8000).
+# Aún no se consume: los endpoints de órdenes no existen en el contrato.
+# VITE_API_BASE_URL=http://127.0.0.1:8000
+
+# Estilo vectorial de MapLibre (recomendado en producción).
+# Si se define, tiene prioridad sobre VITE_MAP_TILES_URL.
+# VITE_MAP_STYLE_URL=
+
+# Plantilla ráster de tiles para el mapa base de desarrollo.
+# Por defecto se usa OpenStreetMap (ver README: uso de demo, atribución y
+# límites). En producción se debe contratar/autoalojar un proveedor.
+# VITE_MAP_TILES_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+
+# Atribución visible del proveedor de tiles.
+# VITE_MAP_ATTRIBUTION=© OpenStreetMap contributors
+
+# Plantilla de glifos para las etiquetas (conteo de clusters y nombres).
+# Por defecto se usan los glifos de MapLibre demotiles (solo desarrollo).
+# Define VITE_MAP_GLYPHS_URL= (vacío) para desactivar las etiquetas del mapa.
+# VITE_MAP_GLYPHS_URL=https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf
