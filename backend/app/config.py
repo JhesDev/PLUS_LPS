@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,16 +19,22 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        populate_by_name=True,
     )
 
     app_name: str = "PLUS_LPS Backend"
     environment: Literal["development", "test", "production"] = "development"
     log_level: str = "INFO"
 
-    # Supabase Auth/PostgREST: la anon key es publica, pero se mantiene fuera
-    # de cualquier respuesta y de los logs.
+    # Supabase Auth/PostgREST acepta la Publishable key. El nombre del campo
+    # conserva compatibilidad con configuraciones existentes que usan ANON.
     supabase_url: str
-    supabase_anon_key: SecretStr
+    supabase_anon_key: SecretStr = Field(
+        validation_alias=AliasChoices(
+            "SUPABASE_PUBLISHABLE_KEY",
+            "SUPABASE_ANON_KEY",
+        )
+    )
 
     # Acceso directo a PostgreSQL para el esquema `ingest` (no expuesto por
     # PostgREST) y para la escritura transaccional de la sincronizacion.

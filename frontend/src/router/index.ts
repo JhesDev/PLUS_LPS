@@ -1,15 +1,25 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { pathForRole } from '@/config/runtime'
+import { useSessionStore } from '@/stores/session'
+import type { AppRole } from '@/types/domain'
 
 /**
- * Rutas del boceto. Cada rol tiene su superficie; el guard redirige a la
- * vista del rol activo para no mezclar acciones de despacho con el modo
- * lectura del coordinador.
+ * Rutas del boceto alpha.
+ *
+ * Cada rol tiene su superficie. El guard redirige a `/login` cuando no hay
+ * sesión y a la vista propia del rol cuando intenta entrar en otra. Es una
+ * protección de experiencia: la autorización real la aplican RLS y el backend.
  */
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/despacho' },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { title: 'Ingresar', public: true },
+    },
     {
       path: '/despacho',
       name: 'despacho',
@@ -32,12 +42,40 @@ export const router = createRouter({
       path: '/:pathMatch(.*)*',
       name: 'no-encontrada',
       component: () => import('@/views/NotFoundView.vue'),
+      meta: { public: true },
     },
   ],
   scrollBehavior: () => ({ top: 0 }),
 })
 
-/** Ajusta el título del documento según la ruta activa. */
+router.beforeEach(async (to) => {
+  const session = useSessionStore()
+
+  // Restauración de sesión la primera vez que se navega.
+  if (session.status === 'loading') {
+    await session.init()
+    session.subscribe()
+  }
+
+  const isPublic = to.meta.public === true
+
+  if (!session.isReady) {
+    if (isPublic) return true
+    return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
+  }
+
+  if (to.name === 'login') {
+    return pathForRole(session.role as AppRole)
+  }
+
+  const required = to.meta.role as AppRole | undefined
+  if (required && session.role !== required) {
+    return pathForRole(session.role as AppRole)
+  }
+
+  return true
+})
+
 router.afterEach((to) => {
   const title = typeof to.meta.title === 'string' ? to.meta.title : null
   document.title = title ? `${title} · PLUZ` : 'PLUZ · Panel operativo'

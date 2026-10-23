@@ -25,8 +25,8 @@ select set_config(
 set local role authenticated;
 select is(
   (select count(*)::int from public.work_orders),
-  12,
-  'coordinador ve todas las órdenes'
+  612,
+  'coordinador ve todas las órdenes del seed (612)'
 );
 reset role;
 
@@ -100,8 +100,8 @@ select set_config(
 set local role authenticated;
 select is(
   (select count(*)::int from public.work_orders),
-  2,
-  'técnico 1 solo ve sus 2 órdenes asignadas'
+  47,
+  'técnico 1 solo ve sus 47 órdenes asignadas'
 );
 reset role;
 

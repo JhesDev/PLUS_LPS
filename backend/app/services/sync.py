@@ -211,8 +211,12 @@ class SyncService:
                     payload_hash=_combined_hash(digests),
                     notes=notes,
                 )
-            except Exception:
-                logger.exception("sync.finish_batch_failed batch=%s", batch_id)
+            except Exception as exc:
+                logger.error(
+                    "sync.finish_batch_failed batch=%s error=%s",
+                    batch_id,
+                    type(exc).__name__,
+                )
                 if failure is None:
                     raise
 

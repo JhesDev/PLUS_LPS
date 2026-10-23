@@ -1449,35 +1449,505 @@ a {
   text-align: center;
 }
 
-@media (max-width: 1080px) {
-  .workspace,
-  .workspace--with-detail {
-    grid-template-columns: 300px 1fr;
-  }
+/* ------------------------------------------------------------------
+   RESPONSIVE — Sistema completo de media queries
+   Breakpoints: 1080 (tablet landscape) · 760 (tablet portrait/móvil grande) · 480 (móvil)
+   ------------------------------------------------------------------ */
 
-  .detail-drawer {
-    display: none;
+/* -------- Variables responsivas ----------------------------------- */
+@media (max-width: 1080px) {
+  :root {
+    --sidebar-width: 300px;
+    --drawer-width: 360px;
+    --header-height: 56px;
   }
 }
 
 @media (max-width: 760px) {
-  .workspace,
-  .workspace--with-detail {
-    grid-template-columns: 1fr;
-    grid-template-rows: 46% 54%;
+  :root {
+    --header-height: 52px;
+  }
+}
+
+/* -------- Header -------------------------------------------------- */
+@media (max-width: 1080px) {
+  .app-header {
+    gap: 10px;
+    padding: 0 12px;
   }
 
-  .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid var(--ink-200);
+  .brand {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .brand__sub {
+    display: none;
   }
 
   .app-nav__item {
     padding: 0 10px;
     font-size: 12.5px;
   }
+}
 
-  .brand__sub {
+@media (max-width: 480px) {
+  .brand__name {
+    font-size: 13px;
+  }
+
+  /* En móvil pequeño ocultamos el texto de los nav items pero mantenemos los
+     links accesibles vía padding generoso */
+  .app-nav {
+    gap: 0;
+  }
+
+  .app-nav__item {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .app-header__actions {
+    gap: 6px;
+  }
+}
+
+/* -------- Workspace (despachador / coordinador) ------------------- */
+@media (max-width: 1080px) {
+  .workspace,
+  .workspace--with-detail {
+    grid-template-columns: var(--sidebar-width) 1fr;
+  }
+
+  .workspace--with-detail {
+    grid-template-columns: var(--sidebar-width) 1fr;
+  }
+
+  /* El drawer en tablet se superpone como overlay */
+  .detail-drawer {
+    position: fixed;
+    top: var(--header-height);
+    right: 0;
+    bottom: 0;
+    width: min(var(--drawer-width), 100%);
+    z-index: 50;
+    box-shadow: var(--shadow-lg);
+    animation: slide-in-right 0.2s ease;
+  }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@media (max-width: 760px) {
+  /* El workspace apila sidebar arriba / mapa abajo */
+  .workspace,
+  .workspace--with-detail {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--ink-200);
+    /* Altura máxima del sidebar en móvil */
+    max-height: 45vh;
+    min-height: 200px;
+  }
+
+  /* El sidebar se puede contraer en móvil con la clase .sidebar--collapsed */
+  .sidebar.sidebar--collapsed {
+    max-height: 44px;
+    overflow: hidden;
+  }
+
+  /* Ajuste del mapa para que llene */
+  .map-pane {
+    min-height: 55vh;
+  }
+
+  /* El drawer en móvil es full-width bottom sheet */
+  .detail-drawer {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 60vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: slide-in-bottom 0.22s ease;
+  }
+
+  @keyframes slide-in-bottom {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    max-height: 42vh;
+    min-height: 180px;
+  }
+
+  .sidebar__tab {
+    padding: 8px 4px;
+    font-size: 11.5px;
+  }
+
+  .sidebar__section {
+    padding: 10px;
+  }
+
+  .map-pane {
+    min-height: 58vh;
+  }
+}
+
+/* -------- Sidebar toggle button (add to workspace) ---------------- */
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-700);
+  background: var(--ink-50);
+  border: 0;
+  border-bottom: 1px solid var(--ink-200);
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+
+.sidebar-toggle__arrow {
+  transition: transform 0.2s;
+}
+
+.sidebar--collapsed .sidebar-toggle__arrow {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .sidebar-toggle {
+    display: flex;
+  }
+
+  .sidebar__tabs {
     display: none;
+  }
+
+  .sidebar--collapsed .sidebar__tabs,
+  .sidebar--collapsed .sidebar__body {
+    display: none;
+  }
+
+  /* Cuando está expandido, el toggle muestra el título del tab activo */
+  .sidebar__tabs--visible {
+    display: flex;
+  }
+}
+
+/* -------- Map toolbar -------------------------------------------- */
+@media (max-width: 760px) {
+  .map-toolbar {
+    top: 8px;
+    left: 8px;
+    gap: 4px;
+  }
+
+  .toolbar-btn {
+    padding: 6px 8px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  /* Ocultamos labels de texto en botones de toolbar que tengan solo texto emoji */
+  .toolbar-btn .toolbar-label {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-toolbar {
+    top: 6px;
+    left: 6px;
+  }
+
+  .toolbar-group {
+    flex-direction: column;
+  }
+
+  .toolbar-btn {
+    border-right: 0;
+    border-bottom: 1px solid var(--ink-200);
+    padding: 5px 8px;
+  }
+
+  .toolbar-btn:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* -------- Basemap selector (MapCanvas) ---------------------------- */
+@media (max-width: 760px) {
+  /* El selector baja, para no chocar con el hint de polígono */
+  .basemap-selector {
+    top: auto;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .basemap-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .basemap-selector {
+    bottom: 30px;
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* -------- Map legend --------------------------------------------- */
+@media (max-width: 760px) {
+  .map-legend {
+    bottom: auto;
+    top: 8px;
+    left: auto;
+    right: 8px;
+    max-width: 200px;
+    padding: 8px;
+    font-size: 11.5px;
+  }
+
+  .map-legend__title {
+    font-size: 10px;
+  }
+
+  .map-legend__row {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* En móvil pequeño la leyenda es colapsable, solo muestra el título */
+  .map-legend {
+    max-width: 140px;
+    right: 6px;
+    top: 6px;
+  }
+}
+
+/* -------- Selection bar ------------------------------------------ */
+@media (max-width: 760px) {
+  .selection-bar {
+    top: auto;
+    bottom: 80px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 380px;
+  }
+}
+
+/* -------- Map hint ----------------------------------------------- */
+@media (max-width: 480px) {
+  .map-hint {
+    font-size: 11.5px;
+    padding: 5px 10px;
+    gap: 6px;
+  }
+}
+
+/* -------- Detail drawer overrides --------------------------------- */
+@media (max-width: 760px) {
+  .drawer__head {
+    padding: 10px 12px;
+  }
+
+  .drawer__body {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* Handle drag indicator en bottom sheet */
+  .detail-drawer::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ink-300);
+    margin: 8px auto 0;
+    flex-shrink: 0;
+  }
+
+  .def-list {
+    grid-template-columns: 100px 1fr;
+    font-size: 12.5px;
+  }
+}
+
+/* -------- Modal adaptado ----------------------------------------- */
+@media (max-width: 600px) {
+  .modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 92vh;
+    animation: slide-in-bottom 0.22s ease;
+  }
+}
+
+/* -------- Demo banner -------------------------------------------- */
+@media (max-width: 760px) {
+  .demo-banner {
+    padding: 5px 10px;
+    font-size: 11.5px;
+    gap: 6px;
+  }
+
+  .demo-banner__text {
+    display: none;
+  }
+}
+
+/* -------- Toasts en móvil ---------------------------------------- */
+@media (max-width: 480px) {
+  .toast-host {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
+  .toast {
+    font-size: 12.5px;
+    padding: 9px 11px;
+  }
+}
+
+/* -------- KPI strip compacta en tablet --------------------------- */
+@media (max-width: 900px) {
+  .kpi {
+    min-width: 74px;
+    padding: 4px 8px;
+  }
+
+  .kpi__value {
+    font-size: 15px;
+  }
+
+  .kpi__label {
+    font-size: 9.5px;
+  }
+}
+
+/* -------- Sync btn oculto en móvil ------------------------------- */
+@media (max-width: 900px) {
+  .sync-btn {
+    display: none;
+  }
+}
+
+/* -------- Tables en móvil: scroll horizontal --------------------- */
+@media (max-width: 600px) {
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    min-width: 600px;
+  }
+}
+
+/* -------- Filters grid en 1 col en móvil ------------------------- */
+@media (max-width: 480px) {
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-grid .field--full {
+    grid-column: 1;
+  }
+}
+
+/* -------- Technician view móvil ---------------------------------- */
+@media (max-width: 640px) {
+  .tech-body {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .tech-map {
+    height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tech-body {
+    padding: 8px;
+    gap: 10px;
+  }
+
+  .tech-map {
+    height: 180px;
+  }
+
+  .stop-card {
+    padding: 10px;
+  }
+}
+
+/* -------- User chip compacto en móvil ---------------------------- */
+@media (max-width: 760px) {
+  /* El chip se reduce; el rol badge desaparece */
+  .user-chip__role {
+    display: none;
+  }
+
+  .user-chip__name {
+    max-width: 80px;
+  }
+
+  .user-chip {
+    padding: 3px 8px;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* En móvil pequeño solo mostramos el botón salir */
+  .user-chip__name {
+    display: none;
+  }
+
+  .user-chip {
+    padding: 3px 6px;
+    background: transparent;
+    border: none;
   }
 }

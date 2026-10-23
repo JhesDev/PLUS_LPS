@@ -13,7 +13,7 @@ const label = computed(() => `${session.actor.name} · ${session.role}`)
 async function choose(userId: string): Promise<void> {
   session.setActor(userId)
   open.value = false
-  const target = roleHome(session.role)
+  const target = roleHome(session.role ?? 'despachador')
   if (router.currentRoute.value.path !== target) await router.push(target)
 }
 </script>

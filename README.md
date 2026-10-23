@@ -32,7 +32,7 @@ En otra terminal, configura y arranca el backend:
 Copy-Item backend/.env.example backend/.env
 ```
 
-Completa `backend/.env` con los valores del Supabase local (`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `DATABASE_URL`; puedes consultarlos con `supabase status`). No compartas ni versionas ese archivo.
+Completa `backend/.env` con los valores del Supabase local (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `DATABASE_URL`; puedes consultarlos con `supabase status`). `SUPABASE_ANON_KEY` sigue aceptada por compatibilidad. No compartas ni versionas ese archivo.
 
 ```powershell
 cd backend

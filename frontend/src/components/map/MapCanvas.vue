@@ -8,14 +8,50 @@ import type {
 } from 'maplibre-gl'
 import type { Coordinates, Technician, WorkOrder } from '@/types/domain'
 import type { SelectionMode } from '@/stores/operations'
-import { resolveMapProvider } from '@/config/runtime'
-import { buildBasemap } from '@/map/basemap'
 import {
   buildTechnicianIcon,
   buildTypeIcons,
 } from '@/map/icons'
 import { STATUS_META } from '@/utils/status'
 import type { RouteLine } from '@/map/route'
+
+/** Catálogo de estilos de mapa base. Positron es el predeterminado. */
+const BASEMAPS = {
+  positron: {
+    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    label: 'Positron',
+    attribution: '© CARTO · © OpenStreetMap contributors',
+  },
+  osm: {
+    url: 'https://demotiles.maplibre.org/style.json',
+    label: 'OSM Demo',
+    attribution: '© OpenStreetMap contributors',
+  },
+  darkMatter: {
+    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    label: 'Dark Matter',
+    attribution: '© CARTO · © OpenStreetMap contributors',
+  },
+  voyager: {
+    url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    label: 'Voyager',
+    attribution: '© CARTO · © OpenStreetMap contributors',
+  },
+} as const
+
+type BasemapKey = keyof typeof BASEMAPS
+
+const STYLE_STORAGE_KEY = 'plus-lps.map.style'
+
+function loadSavedStyle(): BasemapKey {
+  try {
+    const saved = globalThis.localStorage?.getItem(STYLE_STORAGE_KEY)
+    if (saved && saved in BASEMAPS) return saved as BasemapKey
+  } catch {
+    // localStorage no disponible
+  }
+  return 'positron'
+}
 
 interface Props {
   orders: WorkOrder[]
@@ -61,8 +97,7 @@ let stallTimer: ReturnType<typeof setTimeout> | null = null
 const warning = ref<string | null>(null)
 const supportsLabels = ref(false)
 
-const provider = resolveMapProvider()
-const basemap = buildBasemap(provider)
+const activeStyleKey = ref<BasemapKey>(loadSavedStyle())
 
 const lastMapClickId = ref<string | null>(null)
 
@@ -242,10 +277,6 @@ function syncSelected(): void {
   const instance = map.value
   if (!instance || !instance.getLayer(LAYER_ORDERS_CIRCLE)) return
   const id = props.selectedOrderId ?? '__none__'
-  instance.setFilter(LAYER_ORDERS_CIRCLE, [
-    'all',
-    ['!', ['has', 'point_count']],
-  ])
   instance.setPaintProperty(LAYER_ORDERS_CIRCLE, 'circle-stroke-width', [
     'case',
     ['==', ['get', 'id'], id],
@@ -284,9 +315,6 @@ function addSourcesAndLayers(instance: MapLibreMap): void {
   instance.addSource('orders', {
     type: 'geojson',
     data: ordersToFeatureCollection(props.orders) as never,
-    cluster: true,
-    clusterMaxZoom: 14,
-    clusterRadius: 48,
   })
 
   instance.addSource('technicians', {
@@ -315,45 +343,6 @@ function addSourcesAndLayers(instance: MapLibreMap): void {
   })
 
   instance.addLayer({
-    id: 'clusters',
-    type: 'circle',
-    source: 'orders',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': '#0a2540',
-      'circle-opacity': 0.86,
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#ffffff',
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        15,
-        5,
-        19,
-        15,
-        24,
-        40,
-        30,
-      ],
-    },
-  })
-
-  if (supportsLabels.value) {
-    instance.addLayer({
-      id: 'cluster-count',
-      type: 'symbol',
-      source: 'orders',
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': ['get', 'point_count_abbreviated'],
-        'text-font': ['Open Sans Semibold'],
-        'text-size': 12,
-      },
-      paint: { 'text-color': '#ffffff' },
-    })
-  }
-
-  instance.addLayer({
     id: LAYER_ORDERS_HIGHLIGHT,
     type: 'circle',
     source: 'orders',
@@ -370,12 +359,12 @@ function addSourcesAndLayers(instance: MapLibreMap): void {
     id: LAYER_ORDERS_CIRCLE,
     type: 'circle',
     source: 'orders',
-    filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': STATUS_COLOR_EXPRESSION as never,
-      'circle-radius': 10,
+      'circle-radius': 12,
       'circle-stroke-width': 2,
       'circle-stroke-color': '#ffffff',
+      'circle-blur': 0,
     },
   })
 
@@ -383,10 +372,9 @@ function addSourcesAndLayers(instance: MapLibreMap): void {
     id: LAYER_ORDERS_ICON,
     type: 'symbol',
     source: 'orders',
-    filter: ['!', ['has', 'point_count']],
     layout: {
       'icon-image': ['concat', 'type-icon-', ['get', 'type']],
-      'icon-size': 0.5,
+      'icon-size': 0.55,
       'icon-allow-overlap': true,
     },
   })
@@ -500,36 +488,6 @@ function zoomOut(): void {
 }
 
 function attachInteractions(instance: MapLibreMap): void {
-  instance.on('click', 'clusters', (event) => {
-    const feature = event.features?.[0]
-    const clusterId = feature?.properties?.cluster_id as number | undefined
-    if (clusterId === undefined) return
-    const source = instance.getSource('orders') as GeoJSONSource | undefined
-    if (!source) return
-
-    void source
-      .getClusterExpansionZoom(clusterId)
-      .then((zoom) => {
-        const coordinates = (feature?.geometry as GeoJSON.Point).coordinates as [
-          number,
-          number,
-        ]
-        instance.easeTo({ center: coordinates, zoom: zoom + 0.2 })
-      })
-      .catch(() => {
-        // Si el cluster ya no existe, se ignora sin romper la interacción.
-      })
-  })
-
-  instance.on('mouseenter', 'clusters', () => {
-    if (props.selectionMode === 'none') instance.getCanvas().style.cursor = 'pointer'
-  })
-
-  instance.on('mouseleave', 'clusters', () => {
-    instance.getCanvas().style.cursor =
-      props.selectionMode === 'polygon' ? 'crosshair' : ''
-  })
-
   instance.on('click', LAYER_ORDERS_CIRCLE, (event) => {
     if (props.selectionMode === 'polygon') return
     const feature = event.features?.[0]
@@ -579,15 +537,60 @@ function attachInteractions(instance: MapLibreMap): void {
   })
 }
 
+/** Registra imágenes de iconos necesarios para las capas. */
+function addIcons(instance: MapLibreMap): void {
+  for (const icon of [...buildTypeIcons(), buildTechnicianIcon()]) {
+    if (!instance.hasImage(icon.id)) {
+      instance.addImage(
+        icon.id,
+        { width: icon.width, height: icon.height, data: icon.data },
+        { pixelRatio: icon.pixelRatio },
+      )
+    }
+  }
+}
+
+/**
+ * Cambia el estilo base del mapa. Después de `setStyle`, MapLibre elimina todas
+ * las fuentes y capas: se re-añaden en el evento `styledata`.
+ */
+function changeBasemapStyle(key: BasemapKey): void {
+  const instance = map.value
+  if (!instance) return
+
+  activeStyleKey.value = key
+  try {
+    globalThis.localStorage?.setItem(STYLE_STORAGE_KEY, key)
+  } catch {
+    // localStorage opcional
+  }
+
+  isReady.value = false
+
+  instance.once('styledata', () => {
+    addIcons(instance)
+    addSourcesAndLayers(instance)
+    attachInteractions(instance)
+    syncOrderData()
+    syncTechnicians()
+    syncPolygon()
+    syncRoute()
+    syncSelected()
+    isReady.value = true
+  })
+
+  instance.setStyle(BASEMAPS[key].url)
+}
+
 function initMap(): void {
   if (!container.value) return
 
-  supportsLabels.value = basemap.supportsLabels
+  supportsLabels.value = true
 
   try {
     const instance = new maplibregl.Map({
       container: container.value,
-      style: basemap.style as StyleSpecification | string,
+      style: BASEMAPS[activeStyleKey.value].url as StyleSpecification | string,
       center: [-77.03, -12.09],
       zoom: 11,
       attributionControl: { compact: true },
@@ -606,19 +609,7 @@ function initMap(): void {
     }, STALL_TIMEOUT_MS)
 
     instance.on('load', () => {
-      for (const icon of [...buildTypeIcons(), buildTechnicianIcon()]) {
-        if (!instance.hasImage(icon.id)) {
-          instance.addImage(
-            icon.id,
-            {
-              width: icon.width,
-              height: icon.height,
-              data: icon.data,
-            },
-            { pixelRatio: icon.pixelRatio },
-          )
-        }
-      }
+      addIcons(instance)
       addSourcesAndLayers(instance)
       attachInteractions(instance)
       if (stallTimer) clearTimeout(stallTimer)
@@ -749,12 +740,27 @@ watch(
   },
 )
 
-defineExpose({ focusOrder, fitToOrders, fitRoute, zoomIn, zoomOut })
+defineExpose({ focusOrder, fitToOrders, fitRoute, zoomIn, zoomOut, changeBasemapStyle })
 </script>
 
 <template>
   <div class="map-canvas-wrap">
     <div ref="container" class="map-canvas" />
+
+    <!-- Selector de estilo de mapa -->
+    <div class="basemap-selector" role="group" aria-label="Estilo de mapa">
+      <button
+        v-for="(meta, key) in BASEMAPS"
+        :key="key"
+        type="button"
+        class="basemap-btn"
+        :class="{ 'is-active': activeStyleKey === key }"
+        :title="meta.label"
+        @click="changeBasemapStyle(key as BasemapKey)"
+      >
+        {{ meta.label }}
+      </button>
+    </div>
 
     <div v-if="!isReady && !fatalError && !stalled" class="map-loading-overlay">
       <div class="state-panel__box">
@@ -808,5 +814,43 @@ defineExpose({ focusOrder, fitToOrders, fitRoute, zoomIn, zoomOut })
 .map-canvas-wrap {
   position: absolute;
   inset: 0;
+}
+
+.basemap-selector {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+
+.basemap-btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.basemap-btn:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+.basemap-btn.is-active {
+  background: #0a2540;
+  color: #ffffff;
+  border-color: #0a2540;
 }
 </style>

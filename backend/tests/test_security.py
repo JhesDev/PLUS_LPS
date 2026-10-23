@@ -89,6 +89,31 @@ async def test_unknown_role_is_forbidden() -> None:
     assert excinfo.value.status_code == 403
 
 
+async def test_malformed_profile_response_is_sanitized() -> None:
+    service, client = _service(_ok_handler(["unexpected-row"]))
+    async with client:
+        with pytest.raises(AuthError) as excinfo:
+            await service.authenticate("valid-token")
+
+    assert excinfo.value.status_code == 502
+    assert excinfo.value.message == "Respuesta de perfil invalida"
+
+
+async def test_malformed_auth_response_is_sanitized() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/auth/v1/user":
+            return httpx.Response(200, json=["unexpected"])
+        raise AssertionError("profile lookup should not run")
+
+    service, client = _service(handler)
+    async with client:
+        with pytest.raises(AuthError) as excinfo:
+            await service.authenticate("valid-token")
+
+    assert excinfo.value.status_code == 502
+    assert excinfo.value.message == "Respuesta de autenticacion invalida"
+
+
 async def test_invalid_token_returns_401() -> None:
     service, client = _service(_ok_handler([], user_status=401))
     async with client:

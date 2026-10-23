@@ -62,7 +62,7 @@ backend/
 
 ```powershell
 cd backend
-pip install -e ".[dev]"     # o `uv sync --extra dev`
+uv sync --extra dev
 ```
 
 ## Configuración
@@ -72,11 +72,14 @@ Copiar `.env.example` a `.env` y completar:
 | Variable | Uso |
 |---|---|
 | `SUPABASE_URL` | URL del stack (local: `http://127.0.0.1:54321`). |
-| `SUPABASE_ANON_KEY` | Clave pública para verificar tokens. |
+| `SUPABASE_PUBLISHABLE_KEY` | Publishable key usada por Auth; no es una clave elevada. También se acepta el nombre antiguo `SUPABASE_ANON_KEY`. |
 | `DATABASE_URL` | Conexión directa a PostgreSQL. **Secreto de servidor.** |
 | `DB_SERVICE_ROLE` | Rol que adopta la sincronización (`service_role` por defecto). |
 | `SYNC_SOURCE` / `SYNC_ENTITY` | Origen lógico (`sap` / `work_order`). |
 | `CORS_ORIGINS` | Orígenes permitidos del frontend (JSON). |
+
+El backend usa la Publishable key para llamar a Supabase Auth; no necesita
+`service_role` para autenticar usuarios. La clave no se devuelve en respuestas.
 
 `DATABASE_URL` es necesaria porque el esquema `ingest` **no** está expuesto por
 PostgREST (`database/supabase/config.toml` sólo expone `public` y
@@ -87,9 +90,9 @@ llegar al navegador.
 
 ```powershell
 cd backend
-python -m uvicorn app.main:app --reload
-python -m app.cli status   # ¿está configurada la integración?
-python -m app.cli sync     # corrida manual (cron/worker)
+uv run uvicorn app.main:app --reload
+uv run python -m app.cli status   # ¿está configurada la integración?
+uv run python -m app.cli sync     # corrida manual (cron/worker)
 ```
 
 Códigos de salida del CLI: `0` sin errores, `2` integración pendiente, `3`
@@ -99,13 +102,17 @@ corrida ya en curso, `4` fallo del origen, `5` lote con errores por registro.
 
 | Método | Ruta | Roles | Descripción |
 |---|---|---|---|
-| `GET` | `/health` | público | Sonda de vida. |
+| `GET` | `/health` | público | Sonda de vida del proceso; no comprueba PostgreSQL ni SAP/PLUZ. |
 | `GET` | `/api/v1/me` | autenticado | Identidad y rol efectivo. |
 | `GET` | `/api/v1/sync/availability` | coordinador, despachador | ¿Integración lista? ¿Qué falta? |
 | `POST` | `/api/v1/sync/runs` | despachador | Sincronización manual (botón «Sincronizar ahora»). |
 
 Autenticación: `Authorization: Bearer <jwt de Supabase>`. La autorización se
 resuelve siempre en el servidor.
+
+`GET /api/v1/sync/availability` informa de los requisitos para la sincronización,
+incluidos `DATABASE_URL` y el contrato externo pendiente. No realiza una
+comprobación activa de conectividad con PostgreSQL o SAP/PLUZ.
 
 Errores (JSON `{code, message}`):
 
@@ -116,6 +123,7 @@ Errores (JSON `{code, message}`):
 | 409 | `SYNC_ALREADY_RUNNING` | Ya hay una corrida del mismo origen. |
 | 502 | `EXTERNAL_SOURCE_ERROR` | Fallo leyendo el origen externo. |
 | 503 | `INTEGRATION_PENDING` | Falta contrato/adaptador (incluye `missing[]`). |
+| 500 | `INTERNAL_ERROR` | Error interno; la respuesta no incluye detalles técnicos. |
 
 Ejemplo de `POST /api/v1/sync/runs` cuando esté habilitado:
 
@@ -140,18 +148,18 @@ El frontend debe tratar `503` mostrando el estado «integración pendiente» (y
 
 ```powershell
 cd backend
-python -m pytest -q
+uv run pytest -q
 ```
 
 Integración con PostgreSQL local (crea y limpia su propio `source`):
 
 ```powershell
 $env:PLUS_TEST_DATABASE_URL="postgresql://postgres:<password>@127.0.0.1:54322/postgres"
-python -m pytest tests/integration -q
+uv run pytest tests/integration -q
 ```
 
-Resultado de la última ejecución local: **45 pruebas unitarias/API + 4 de
-integración, todas en verde**.
+Las pruebas de integración se omiten si `PLUS_TEST_DATABASE_URL` no está
+configurada y accesible.
 
 ## Decisiones de diseño
 

@@ -38,9 +38,23 @@ const isAudit = computed(() => props.mode === 'auditoria')
 
 type SidebarTab = 'orders' | 'technicians' | 'audit' | 'table'
 const sidebarTab = ref<SidebarTab>('orders')
+const sidebarCollapsed = ref(false)
 const mapRef = ref<InstanceType<typeof MapCanvas> | null>(null)
 const proximityTechnicianId = ref('')
 const selectedTechnicianId = ref<string | null>(null)
+
+const TAB_LABELS: Record<SidebarTab, string> = {
+  orders: 'Órdenes',
+  technicians: 'Cuadrillas',
+  audit: 'Auditoría',
+  table: 'Tabla',
+}
+
+function toggleSidebar(): void {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  // Notificar al mapa para que recalcule su tamaño
+  setTimeout(() => mapRef.value?.fitToOrders?.(), 220)
+}
 
 const assignOpen = ref(false)
 const assignTechnicianPreselect = ref<string | null>(null)
@@ -254,8 +268,20 @@ function exportHistory(): void {
     class="workspace"
     :class="{ 'workspace--with-detail': Boolean(operations.selectedOrder) }"
   >
-    <div class="sidebar">
-      <div class="sidebar__tabs" role="tablist">
+    <div class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
+      <!-- Toggle de sidebar visible en móvil -->
+      <button
+        type="button"
+        class="sidebar-toggle"
+        :aria-expanded="!sidebarCollapsed"
+        aria-controls="sidebar-body"
+        @click="toggleSidebar"
+      >
+        <span>{{ TAB_LABELS[sidebarTab] }} ({{ operations.filteredOrders.length }})</span>
+        <span class="sidebar-toggle__arrow">▼</span>
+      </button>
+
+      <div class="sidebar__tabs" :class="{ 'sidebar__tabs--visible': !sidebarCollapsed }" role="tablist">
         <button
           type="button"
           class="sidebar__tab"

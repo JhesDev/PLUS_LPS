@@ -88,7 +88,13 @@ async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 async def _unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.exception("unhandled_error path=%s", request.url.path)
+    # No registrar texto de excepciones ni trazas: pueden contener DSN,
+    # sentencias o contenido sensible de proveedores externos.
+    logger.error(
+        "unhandled_error path=%s error=%s",
+        request.url.path,
+        type(exc).__name__,
+    )
     return JSONResponse(
         status_code=500,
         content={
@@ -116,6 +122,15 @@ async def _http_error_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
+    if exc.status_code >= 500:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "code": "INTERNAL_ERROR",
+                "message": "Error interno del servidor.",
+            },
+        )
+
     code = _HTTP_ERROR_CODES.get(exc.status_code, "HTTP_ERROR")
     message = exc.detail if isinstance(exc.detail, str) else "Peticion no valida."
     return JSONResponse(

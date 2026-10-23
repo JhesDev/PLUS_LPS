@@ -76,7 +76,10 @@ class SupabaseAuthService:
             )
 
         try:
-            user_id = UUID(str(response.json()["id"]))
+            user_data = response.json()
+            if not isinstance(user_data, dict):
+                raise TypeError("invalid auth response")
+            user_id = UUID(str(user_data["id"]))
         except (KeyError, TypeError, ValueError) as exc:
             raise AuthError(
                 "Respuesta de autenticacion invalida", status_code=502
@@ -121,12 +124,14 @@ class SupabaseAuthService:
             )
 
         row = rows[0]
-        if not row.get("is_active", False):
+        if not isinstance(row, dict):
+            raise AuthError("Respuesta de perfil invalida", status_code=502)
+        if row.get("is_active") is not True:
             raise AuthError("El perfil del usuario esta inactivo", status_code=403)
 
         try:
             role = AppRole(row["role"])
-        except (KeyError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError) as exc:
             raise AuthError(
                 "El perfil tiene un rol no reconocido", status_code=403
             ) from exc

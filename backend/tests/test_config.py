@@ -47,3 +47,23 @@ def test_default_cors_origins_are_local_frontend() -> None:
     settings = _settings()
 
     assert "http://localhost:5173" in settings.cors_origins
+
+
+def test_publishable_key_environment_name_is_supported(monkeypatch) -> None:
+    monkeypatch.setenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "publishable-test")
+    monkeypatch.delenv("SUPABASE_ANON_KEY", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.supabase_anon_key.get_secret_value() == "publishable-test"
+
+
+def test_legacy_anon_key_environment_name_remains_supported(monkeypatch) -> None:
+    monkeypatch.setenv("SUPABASE_URL", "http://127.0.0.1:54321")
+    monkeypatch.delenv("SUPABASE_PUBLISHABLE_KEY", raising=False)
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "anon-test")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.supabase_anon_key.get_secret_value() == "anon-test"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -11,7 +12,14 @@ from app.factory import create_app
 from app.security import Principal
 from app.services.sync import SyncService
 
-from .fakes import DictMapper, FakeAuth, FakeSyncStore, ListSource, make_payload
+from .fakes import (
+    DictMapper,
+    FakeAuth,
+    FakeSyncSession,
+    FakeSyncStore,
+    ListSource,
+    make_payload,
+)
 
 DESPACHADOR_ID = UUID("22222222-2222-4222-8222-222222222222")
 COORDINADOR_ID = UUID("11111111-1111-4111-8111-111111111111")
@@ -53,7 +61,9 @@ def _configured_sync() -> SyncService:
     )
 
 
-def _client(sync: SyncService) -> TestClient:
+def _client(
+    sync: SyncService, *, raise_server_exceptions: bool = True
+) -> TestClient:
     settings = _settings()
     container = Container(
         settings=settings,
@@ -61,7 +71,10 @@ def _client(sync: SyncService) -> TestClient:
         sync=sync,
         http_client=None,
     )
-    return TestClient(create_app(settings, container=container))
+    return TestClient(
+        create_app(settings, container=container),
+        raise_server_exceptions=raise_server_exceptions,
+    )
 
 
 def test_health_is_public() -> None:
@@ -165,6 +178,75 @@ def test_sync_trigger_runs_for_despachador() -> None:
     assert body["created"] == 1
     assert body["errors"] == 0
     assert UUID(body["batch_id"])
+
+
+def test_sync_trigger_returns_409_when_source_is_already_running() -> None:
+    service = SyncService(
+        source_name="sap",
+        source=ListSource([]),
+        mapper=DictMapper(),
+        store=FakeSyncStore(acquired=False),
+    )
+    with _client(service) as client:
+        response = client.post(
+            "/api/v1/sync/runs",
+            headers={"Authorization": "Bearer despachador-token"},
+        )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "SYNC_ALREADY_RUNNING",
+        "message": "Ya hay una sincronizacion en curso para 'sap'.",
+    }
+
+
+def test_sync_trigger_sanitizes_external_source_errors() -> None:
+    service = SyncService(
+        source_name="sap",
+        source=ListSource([], error=RuntimeError("token=do-not-return")),
+        mapper=DictMapper(),
+        store=FakeSyncStore(),
+    )
+    with _client(service) as client:
+        response = client.post(
+            "/api/v1/sync/runs",
+            headers={"Authorization": "Bearer despachador-token"},
+        )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "code": "EXTERNAL_SOURCE_ERROR",
+        "message": "No se pudo completar la lectura del origen externo.",
+    }
+
+
+def test_internal_error_response_and_logs_do_not_expose_exception(
+    caplog,
+) -> None:
+    class BrokenSession(FakeSyncSession):
+        async def start_batch(self, *, source: str, entity: str, notes: str | None):
+            raise RuntimeError("postgres://user:password@db token=do-not-log")
+
+    service = SyncService(
+        source_name="sap",
+        source=ListSource([]),
+        mapper=DictMapper(),
+        store=FakeSyncStore(session=BrokenSession()),
+    )
+    caplog.set_level(logging.ERROR)
+    with _client(service, raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/v1/sync/runs",
+            headers={"Authorization": "Bearer despachador-token"},
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "code": "INTERNAL_ERROR",
+        "message": "Error interno del servidor.",
+    }
+    assert "password" not in caplog.text
+    assert "do-not-log" not in caplog.text
 
 
 def test_unknown_route_returns_404() -> None:

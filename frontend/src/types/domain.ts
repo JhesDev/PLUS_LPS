@@ -9,6 +9,14 @@
 
 export type AppRole = 'coordinador' | 'despachador' | 'tecnico'
 
+export type DataMode = 'connected' | 'demo'
+
+export interface Actor {
+  id: string
+  name: string
+  role: AppRole
+}
+
 export type WorkOrderType =
   | 'corte'
   | 'reposicion'
